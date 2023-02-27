@@ -1,6 +1,11 @@
 using Android.Content;
+
 using CommunityToolkit.Maui.Core.Primitives;
+
 using Microsoft.Maui.ApplicationModel;
+
+using PortableStorage.Droid;
+
 using AndroidUri = Android.Net.Uri;
 
 namespace CommunityToolkit.Maui.Storage;
@@ -11,25 +16,31 @@ public sealed class FolderPickerImplementation : IFolderPicker
 	/// <inheritdoc />
 	public async Task<Folder> PickAsync(string initialPath, CancellationToken cancellationToken)
 	{
-		var status = await Permissions.RequestAsync<Permissions.StorageRead>().WaitAsync(cancellationToken).ConfigureAwait(false);
-		if (status is not PermissionStatus.Granted)
+		if (!OperatingSystem.IsAndroidVersionAtLeast(29))
 		{
-			throw new PermissionException("Storage permission is not granted.");
+			var status = await Permissions.RequestAsync<Permissions.StorageRead>().WaitAsync(cancellationToken).ConfigureAwait(false);
+			if (status is not PermissionStatus.Granted)
+			{
+				throw new PermissionException("Storage permission is not granted.");
+			}
 		}
 
 		Folder? folder = null;
 
 		var intent = new Intent(Intent.ActionOpenDocumentTree);
+		intent.PutExtra("android.content.extra.SHOW_ADVANCED", value: true);
+		intent.PutExtra("android.content.extra.FANCY", value: true);
 		var pickerIntent = Intent.CreateChooser(intent, string.Empty) ?? throw new InvalidOperationException("Unable to create intent.");
 
-		await IntermediateActivity.StartAsync(pickerIntent, (int)AndroidRequestCode.RequestCodeFolderPicker, onResult: OnResult).WaitAsync(cancellationToken);
+		await IntermediateActivity.StartAsync(pickerIntent, (int) AndroidRequestCode.RequestCodeFolderPicker, onResult: OnResult).WaitAsync(cancellationToken);
 
 		return folder ?? throw new FolderPickerException("Unable to get folder.");
 
 		void OnResult(Intent resultIntent)
 		{
-			var path = EnsurePhysicalPath(resultIntent.Data);
-			folder = new Folder(path, Path.GetFileName(path));
+			var uri = SafStorageHelper.ResolveFromActivityResult(Platform.CurrentActivity, resultIntent);
+			using var storage = SafStorgeProvider.CreateStorage(Platform.CurrentActivity, uri);
+			folder = new Folder(AndroidUri.Decode(storage.Uri.OriginalString)!, storage.Name);
 		}
 	}
 

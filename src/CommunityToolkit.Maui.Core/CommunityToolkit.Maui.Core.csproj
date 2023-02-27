@@ -56,4 +56,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-android')) == true">
+    <PackageReference Include="PortableStorage.Android">
+      <Version>1.2.71</Version>
+    </PackageReference>
+  </ItemGroup>
 </Project>
