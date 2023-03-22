@@ -59,7 +59,23 @@ public sealed partial class FolderPickerImplementation : IFolderPicker, IDisposa
 
 	void DocumentPickerViewControllerOnDidPickDocumentAtUrls(object? sender, UIDocumentPickedAtUrlsEventArgs e)
 	{
-		var path = e.Urls[0].Path ?? throw new FolderPickerException("Path cannot be null.");
+		var url = e.Urls[0];
+		var path = url.AbsoluteString ?? throw new FolderPickerException("Path cannot be null.");
+		SaveBookmark(url);
 		taskCompetedSource?.SetResult(new Folder(path, new DirectoryInfo(path).Name));
+	}
+
+	const string libraryFoldersKey = "LibraryFolders";
+	static void SaveBookmark(NSUrl url)
+	{
+		url.StartAccessingSecurityScopedResource();
+		var bookmark = url.CreateBookmarkData(
+			NSUrlBookmarkCreationOptions.MinimalBookmark | NSUrlBookmarkCreationOptions.WithSecurityScope | NSUrlBookmarkCreationOptions.SecurityScopeAllowOnlyReadAccess,
+			null,
+			null,
+			out _
+		);
+		NSUserDefaults.StandardUserDefaults.SetValueForKey(bookmark, new NSString(libraryFoldersKey));
+		url.StopAccessingSecurityScopedResource();
 	}
 }
